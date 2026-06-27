@@ -1,0 +1,7 @@
+.slim/deepwork/
+node_modules/
+out/
+*.vsix
+.DS_Store
+*.log
+coverage/

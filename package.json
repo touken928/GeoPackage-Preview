@@ -1,0 +1,67 @@
+{
+  "name": "geopackage-preview",
+  "displayName": "GeoPackage Preview",
+  "description": "Read-only preview for GeoPackage (.gpkg) files with map and attribute table views",
+  "icon": "media/logo.png",
+  "version": "0.1.0",
+  "publisher": "touken928",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:touken928/GeoPackage-Preview.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "geopackage.preview",
+        "displayName": "GeoPackage Preview",
+        "selector": [
+          {
+            "filenamePattern": "*.gpkg"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "lint": "echo 'lint not configured'",
+    "package": "npx @vscode/vsce package"
+  },
+  "files": [
+    "out/**",
+    "media/**",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@fluentui/react-components": "^9.74.0",
+    "@fluentui/react-icons": "^2.0.245",
+    "@ngageoint/geopackage": "5.0.2-beta",
+    "ol": "^10.9.0",
+    "proj4": "^2.20.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/proj4": "^2.5.6",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.3.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0"
+  }
+}
