@@ -50,7 +50,7 @@ body {
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(0, var(--sidebar-width, 320px)) 10px minmax(0, 1fr);
+  grid-template-columns: minmax(180px, min(var(--sidebar-width, 320px), 42vw)) 10px minmax(0, 1fr);
   gap: 0;
   position: relative;
 }
@@ -516,8 +516,3 @@ body {
   cursor: pointer;
 }
 .floatingMenuItem:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-
-@media (max-width: 1100px) {
-  .layout, .layout.sidebarCollapsed { grid-template-columns: 1fr; }
-  .paneResizer.vertical { display: none; }
-}
