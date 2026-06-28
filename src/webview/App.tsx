@@ -214,8 +214,8 @@ export function App() {
   return (
     <div className="appShell">
       <div
-        className={sidebarCollapsed ? 'layout collapsed' : 'layout'}
-        style={sidebarCollapsed ? undefined : { gridTemplateColumns: `${sidebarWidth}px 10px minmax(0, 1fr)` }}
+        className={sidebarCollapsed ? 'layout sidebarCollapsed' : 'layout'}
+        style={sidebarCollapsed ? undefined : { ['--sidebar-width' as string]: `${sidebarWidth}px` }}
       >
         {!sidebarCollapsed ? (
           <Sidebar
@@ -236,7 +236,10 @@ export function App() {
         ) : null}
         {!sidebarCollapsed ? <div className="paneResizer vertical" onPointerDown={startSidebarResize} /> : null}
 
-        <main className={detailsCollapsed ? 'mainArea detailsCollapsed' : 'mainArea'}>
+        <main
+          className={detailsCollapsed ? 'workspace detailsCollapsed' : 'workspace'}
+          style={detailsCollapsed ? undefined : { ['--details-height' as string]: `${detailsHeight}px` }}
+        >
           <section className="mapCard">
             <MapView
               layers={state.vectorLayers}
@@ -277,12 +280,10 @@ export function App() {
               <AttributeTable
                 layer={state.activeItemKind === 'vector' ? activeLayer : undefined}
                 tileLayer={activeTileLayer}
-                collapsed={detailsCollapsed}
                 onToggleCollapsed={() => setDetailsCollapsed(true)}
                 onSelectFeature={(featureKey) => setState((prev) => ({ ...prev, selectedFeatureKey: featureKey }))}
                 onZoomToFeature={handleZoomToFeature}
                 selectedFeatureKey={state.selectedFeatureKey}
-                height={detailsHeight}
               />
             </>
           ) : null}

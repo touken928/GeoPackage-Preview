@@ -6,8 +6,6 @@ import type { TileLayerState, VectorLayerState } from '../types';
 interface AttributeTableProps {
   layer: VectorLayerState | undefined;
   tileLayer: TileLayerState | undefined;
-  collapsed: boolean;
-  height: number;
   onToggleCollapsed: () => void;
   onSelectFeature: (featureKey: string) => void;
   onZoomToFeature: (featureKey: string) => void;
@@ -48,11 +46,13 @@ function compareUnknownValues(left: unknown, right: unknown): number {
   return leftText.localeCompare(rightText, undefined, { numeric: true, sensitivity: 'base' });
 }
 
+function searchValue(featureId: string, value: unknown, key: SortKey): string {
+  return key === 'id' ? displayFeatureId(featureId) : formatValue(value);
+}
+
 export function AttributeTable({
   layer,
   tileLayer,
-  collapsed,
-  height,
   onToggleCollapsed,
   onSelectFeature,
   onZoomToFeature,
@@ -64,11 +64,15 @@ export function AttributeTable({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; featureKey: string } | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [searchColumn, setSearchColumn] = useState<SortKey>('id');
+  const [searchQuery, setSearchQuery] = useState('');
   const selectedRowRef = useRef<HTMLTableRowElement | null>(null);
 
   useEffect(() => {
     setSortKey('id');
     setSortDirection('asc');
+    setSearchColumn('id');
+    setSearchQuery('');
   }, [layer?.id]);
 
   useEffect(() => {
@@ -84,16 +88,37 @@ export function AttributeTable({
   }, [contextMenu]);
 
   useEffect(() => {
-    if (collapsed) return;
-
     selectedRowRef.current?.scrollIntoView({
       block: 'nearest',
       inline: 'nearest',
     });
-  }, [collapsed, selectedFeatureKey]);
+  }, [selectedFeatureKey]);
+
+  const searchRegex = useMemo(() => {
+    if (!searchQuery) return null;
+
+    try {
+      return new RegExp(searchQuery, 'i');
+    } catch {
+      return null;
+    }
+  }, [searchQuery]);
+
+  const hasInvalidRegex = searchQuery.length > 0 && searchRegex == null;
+
+  const filteredFeatures = useMemo(() => {
+    if (!searchQuery) return features;
+    if (hasInvalidRegex) return [];
+
+    return features.filter((feature) => {
+      const rawValue = searchColumn === 'id' ? undefined : feature.properties[searchColumn];
+      const text = searchValue(feature.id, rawValue, searchColumn);
+      return searchRegex?.test(text) ?? false;
+    });
+  }, [features, hasInvalidRegex, searchColumn, searchQuery, searchRegex]);
 
   const sortedFeatures = useMemo(() => {
-    return features
+    return filteredFeatures
       .map((feature, index) => ({ feature, index }))
       .sort((left, right) => {
         const leftValue = sortKey === 'id' ? displayFeatureId(left.feature.id) : left.feature.properties[sortKey];
@@ -107,7 +132,7 @@ export function AttributeTable({
         return left.index - right.index;
       })
       .map(({ feature }) => feature);
-  }, [features, sortDirection, sortKey]);
+  }, [filteredFeatures, sortDirection, sortKey]);
 
   const handleSort = (nextKey: SortKey) => {
     if (sortKey === nextKey) {
@@ -132,48 +157,75 @@ export function AttributeTable({
   };
 
   return (
-    <section className={collapsed ? 'detailsPane collapsed' : 'detailsPane'} style={collapsed ? undefined : { flexBasis: `${height}px` }}>
+    <section className="detailsPane">
       <div className="detailsHeader">
-        <div>
-          <Text weight="semibold">{title}</Text>
-          <div className="detailsMeta">
-            {layer ? `${features.length} rows` : tileLayer ? 'Tile table metadata only' : 'Choose a layer to inspect it.'}
+        <div className="detailsHeaderContent">
+          <div className="detailsTitleRow">
+            <Text className="detailsTitleText" weight="semibold">{title}</Text>
+            {layer ? <span className="detailsCount">{features.length} rows</span> : null}
           </div>
+          {tileLayer ? <div className="detailsMeta">Tile table metadata only</div> : null}
+          {!layer && !tileLayer ? <div className="detailsMeta">Choose a layer to inspect it.</div> : null}
         </div>
-        <Button appearance="subtle" icon={collapsed ? <PanelBottomExpand20Regular /> : <PanelBottomContract20Regular />} onClick={onToggleCollapsed} />
+        <Button appearance="subtle" icon={<PanelBottomContract20Regular />} onClick={onToggleCollapsed} />
       </div>
 
-      {collapsed ? null : layer ? (
-        <div className="tableScroll" aria-label="GeoPackage attributes">
-          <table className="attrTable">
-            <thead>
-              <tr>
-                <th className="fixedCol">{renderSortLabel('id', 'Feature id')}</th>
-                {columns.map((column) => <th key={column}>{renderSortLabel(column, column)}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedFeatures.map((feature) => {
-                const selected = feature.id === selectedFeatureKey;
-                return (
-                  <tr
-                    key={feature.id}
-                    className={selected ? 'selectedRow' : ''}
-                    ref={selected ? selectedRowRef : undefined}
-                    onClick={() => onSelectFeature(feature.id)}
-                    onContextMenu={(event) => {
-                      event.preventDefault();
-                      setContextMenu({ x: event.clientX, y: event.clientY, featureKey: feature.id });
-                    }}
-                  >
-                    <td className="fixedCol">{displayFeatureId(feature.id)}</td>
-                    {columns.map((column) => <td key={column}>{formatValue(feature.properties[column])}</td>)}
+      {layer ? (
+        <>
+          <div className="detailsBody">
+            <div className="tableToolbar">
+              <label className="tableToolbarField">
+                <span className="tableToolbarLabel">Column</span>
+                <select className="tableToolbarSelect" value={searchColumn} onChange={(event) => setSearchColumn(event.target.value)}>
+                  <option value="id">Feature id</option>
+                  {columns.map((column) => <option key={column} value={column}>{column}</option>)}
+                </select>
+              </label>
+              <label className="tableToolbarField tableToolbarSearchField">
+                <span className="tableToolbarLabel">Search</span>
+                <input
+                  className="tableToolbarInput"
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Enter regular expression"
+                />
+              </label>
+            </div>
+            {hasInvalidRegex ? <div className="tableToolbarMessage error">Invalid regular expression.</div> : null}
+            {searchQuery && !hasInvalidRegex ? <div className="tableToolbarMessage">{sortedFeatures.length} matches</div> : null}
+            <div className="tableScroll" aria-label="GeoPackage attributes">
+              <table className="attrTable">
+                <thead>
+                  <tr>
+                    <th className="fixedCol">{renderSortLabel('id', 'Feature id')}</th>
+                    {columns.map((column) => <th key={column}>{renderSortLabel(column, column)}</th>)}
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {sortedFeatures.map((feature) => {
+                    const selected = feature.id === selectedFeatureKey;
+                    return (
+                      <tr
+                        key={feature.id}
+                        className={selected ? 'selectedRow' : ''}
+                        ref={selected ? selectedRowRef : undefined}
+                        onClick={() => onSelectFeature(feature.id)}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          setContextMenu({ x: event.clientX, y: event.clientY, featureKey: feature.id });
+                        }}
+                      >
+                        <td className="fixedCol">{displayFeatureId(feature.id)}</td>
+                        {columns.map((column) => <td key={column}>{formatValue(feature.properties[column])}</td>)}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       ) : (
         <div className="emptyState">Open a layer to inspect rows.</div>
       )}
