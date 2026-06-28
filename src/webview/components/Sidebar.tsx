@@ -11,6 +11,7 @@ interface SidebarProps {
   activeItemKind: 'vector' | 'tile' | null;
   onToggleVisible: (layerId: string) => void;
   onMoveLayer: (layerId: string, direction: -1 | 1) => void;
+  onUpdateLayerStyle: (layerId: string, style: { color?: string; opacity?: number }) => void;
   onActivateItem: (itemId: string, kind: 'vector' | 'tile') => void;
   onZoomToLayer: (layerId: string) => void;
   onShowDetails: (itemId: string, kind: 'vector' | 'tile') => void;
@@ -26,6 +27,7 @@ export function Sidebar({
   activeItemKind,
   onToggleVisible,
   onMoveLayer,
+  onUpdateLayerStyle,
   onActivateItem,
   onZoomToLayer,
   onShowDetails,
@@ -52,6 +54,8 @@ export function Sidebar({
       ? vectorLayers.find((item) => item.id === contextMenu.id)
       : tileLayers.find((item) => item.id === contextMenu.id);
   }, [contextMenu, vectorLayers, tileLayers]);
+
+  const contextVectorLayer = contextMenu?.kind === 'vector' && contextLayer?.kind === 'vector' ? contextLayer : null;
 
   if (collapsed) {
     return (
@@ -92,7 +96,7 @@ export function Sidebar({
               <div className="sidebarCardBody">
                 <div className="sidebarCardTitleRow">
                   <Checkbox checked={layer.visible} onClick={(e) => e.stopPropagation()} onChange={() => onToggleVisible(layer.id)} />
-                  <Layer20Regular />
+                  <Layer20Regular style={{ color: layer.style.color }} />
                   <Text weight="semibold">{layer.name}</Text>
                 </div>
                 <div className="sidebarCardMeta">
@@ -139,17 +143,49 @@ export function Sidebar({
         })}
       </div>
       {contextMenu && contextLayer ? (
-        <div className="floatingMenu" style={{ left: contextMenu.x, top: contextMenu.y }} onMouseLeave={() => setContextMenu(null)}>
-          {contextMenu.kind === 'vector' ? (
-            <button className="floatingMenuItem" onClick={() => { onZoomToLayer(contextMenu.id); setContextMenu(null); }}>
-              <ZoomFit20Regular />
-              <span>Zoom to layer</span>
-            </button>
+        <div className="floatingMenu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+          {contextMenu.kind === 'vector' && contextVectorLayer ? (
+            <>
+              <button className="floatingMenuItem" onClick={() => { onZoomToLayer(contextMenu.id); setContextMenu(null); }}>
+                <ZoomFit20Regular />
+                <span>Zoom to layer</span>
+              </button>
+            </>
           ) : null}
           <button className="floatingMenuItem" onClick={() => { onShowDetails(contextMenu.id, contextMenu.kind); setContextMenu(null); }}>
             <Table20Regular />
             <span>Show in details</span>
           </button>
+          {contextMenu.kind === 'vector' && contextVectorLayer ? (
+            <>
+              <div className="floatingMenuDivider" />
+              <div className="floatingMenuSection">
+                <label className="floatingMenuLabel" htmlFor="layer-color-input">Color</label>
+                <input
+                  id="layer-color-input"
+                  className="colorInput"
+                  type="color"
+                  value={contextVectorLayer.style.color}
+                  onChange={(event) => onUpdateLayerStyle(contextMenu.id, { color: event.target.value })}
+                />
+              </div>
+              <div className="floatingMenuSection">
+                <div className="floatingMenuLabelRow">
+                  <span className="floatingMenuLabel">Opacity</span>
+                  <span className="floatingMenuValue">{Math.round(contextVectorLayer.style.opacity * 100)}%</span>
+                </div>
+                <input
+                  className="sliderInput"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={Math.round(contextVectorLayer.style.opacity * 100)}
+                  onChange={(event) => onUpdateLayerStyle(contextMenu.id, { opacity: Number(event.target.value) / 100 })}
+                />
+              </div>
+            </>
+          ) : null}
         </div>
       ) : null}
     </aside>

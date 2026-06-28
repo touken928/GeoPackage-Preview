@@ -23,13 +23,47 @@ interface MapViewProps {
   layoutCollapsed: boolean;
 }
 
-function createStyle(selected: boolean) {
+function hexToRgba(hex: string, opacity: number) {
+  const normalized = hex.replace('#', '');
+  const safeHex = normalized.length === 3
+    ? normalized.split('').map((part) => `${part}${part}`).join('')
+    : normalized.padEnd(6, '0').slice(0, 6);
+  const red = Number.parseInt(safeHex.slice(0, 2), 16);
+  const green = Number.parseInt(safeHex.slice(2, 4), 16);
+  const blue = Number.parseInt(safeHex.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
+}
+
+function isLineGeometry(geometryType: string | undefined) {
+  return geometryType === 'LineString' || geometryType === 'MultiLineString';
+}
+
+function createStyle(layer: VectorLayerState, selected: boolean, geometryType?: string) {
+  const fillColor = layer.style.color;
+  const opacity = Math.max(0, Math.min(1, layer.style.opacity));
+  const selectedStrokeColor = '#7ec8ff';
+  const selectedStrokeOpacity = Math.max(0.85, opacity);
+  const defaultStrokeColor = '#000000';
+  const baseStrokeColor = isLineGeometry(geometryType) ? fillColor : defaultStrokeColor;
+
   return new Style({
-    fill: new Fill({ color: selected ? 'rgba(32, 136, 255, 0.26)' : 'rgba(89, 155, 255, 0.16)' }),
-    stroke: new Stroke({ color: selected ? '#1976d2' : '#4b6ea8', width: selected ? 3 : 1.5 }),
+    fill: new Fill({ color: hexToRgba(fillColor, opacity) }),
+    stroke: new Stroke({ color: selected ? hexToRgba(selectedStrokeColor, selectedStrokeOpacity) : hexToRgba(baseStrokeColor, opacity), width: selected ? 3 : 1 }),
     image: new CircleStyle({
       radius: selected ? 7 : 5,
-      fill: new Fill({ color: selected ? '#1976d2' : '#5c7ea6' }),
+      fill: new Fill({ color: hexToRgba(fillColor, opacity) }),
+      stroke: new Stroke({ color: selected ? hexToRgba(selectedStrokeColor, selectedStrokeOpacity) : hexToRgba(defaultStrokeColor, opacity), width: selected ? 2 : 1 }),
+    }),
+  });
+}
+
+function createFallbackStyle(selected: boolean) {
+  return new Style({
+    fill: new Fill({ color: selected ? 'rgba(75, 110, 168, 0.3)' : 'rgba(75, 110, 168, 0.18)' }),
+    stroke: new Stroke({ color: '#4b6ea8', width: selected ? 3 : 1.5 }),
+    image: new CircleStyle({
+      radius: selected ? 7 : 5,
+      fill: new Fill({ color: selected ? 'rgba(75, 110, 168, 0.9)' : 'rgba(75, 110, 168, 0.7)' }),
       stroke: new Stroke({ color: '#ffffff', width: 1.25 }),
     }),
   });
@@ -44,13 +78,23 @@ export function MapView({ layers, selectedFeatureKey, zoomRequest, onSelectionCh
   const mapRef = useRef<OlMap | null>(null);
   const layerMapRef = useRef<globalThis.Map<string, VectorLayer<VectorSource>>>(new globalThis.Map());
   const selectRef = useRef<Select | null>(null);
+  const lastAutoFitSignatureRef = useRef<string | null>(null);
   // Keep latest onSelectionChange in a ref so Effect 1 doesn't need it in deps.
   const onSelectionChangeRef = useRef(onSelectionChange);
   onSelectionChangeRef.current = onSelectionChange;
   const onShowDetailsRef = useRef(onShowDetails);
   onShowDetailsRef.current = onShowDetails;
+  const layersRef = useRef(layers);
+  layersRef.current = layers;
 
   const visibleLayers = useMemo(() => layers.filter((layer) => layer.visible && layer.renderable), [layers]);
+  const autoFitSignature = useMemo(
+    () => [...layers]
+      .map((layer) => `${layer.id}:${layer.featureCount ?? layer.features.length}:${layer.renderable ? '1' : '0'}`)
+      .sort()
+      .join('|'),
+    [layers],
+  );
 
   // ── Effect 1: create map once ──────────────────────────────────────────
   useEffect(() => {
@@ -59,7 +103,11 @@ export function MapView({ layers, selectedFeatureKey, zoomRequest, onSelectionCh
     const target = mapElementRef.current;
 
     const select = new Select({
-      style: () => createStyle(true),
+      style: (feature) => {
+        const layerId = String(feature.get('layerId') ?? '');
+        const layer = layersRef.current.find((candidate) => candidate.id === layerId);
+        return layer ? createStyle(layer, true, feature.getGeometry()?.getType()) : createFallbackStyle(true);
+      },
     });
     select.on('select', (event) => {
       const feature = event.selected[0];
@@ -132,7 +180,7 @@ export function MapView({ layers, selectedFeatureKey, zoomRequest, onSelectionCh
       mapRef.current = null;
       selectRef.current = null;
     };
-  }, []); // stable — the ref avoids stale onSelectionChange
+  }, []);
 
   // ── Effect 2: rebuild vector layers when visible layers change ─────────
   useEffect(() => {
@@ -189,18 +237,19 @@ export function MapView({ layers, selectedFeatureKey, zoomRequest, onSelectionCh
       const vectorLayer = new VectorLayer({
         source,
         zIndex: 1000 - renderIndex,
-        style: () => createStyle(false),
+        style: (feature) => createStyle(layer, false, feature.getGeometry()?.getType()),
       });
 
       existing.set(layer.id, vectorLayer);
       map.addLayer(vectorLayer);
     }
 
-    // Fit extent on initial layer load (not on selection-only changes).
-    if (featureExtent && !isEmptyExtent(featureExtent)) {
+    // Only auto-fit when a new document/layer set is loaded.
+    if (featureExtent && !isEmptyExtent(featureExtent) && lastAutoFitSignatureRef.current !== autoFitSignature) {
       map.getView().fit(featureExtent, { padding: [24, 24, 24, 24], duration: 250, maxZoom: 17 });
+      lastAutoFitSignatureRef.current = autoFitSignature;
     }
-  }, [visibleLayers]);
+  }, [autoFitSignature, visibleLayers]);
 
   // ── Effect 3: update selection highlight when selectedFeatureKey changes
   useEffect(() => {
@@ -231,6 +280,10 @@ export function MapView({ layers, selectedFeatureKey, zoomRequest, onSelectionCh
     select.getFeatures().clear();
     map.render();
   }, [selectedFeatureKey]);
+
+  useEffect(() => {
+    mapRef.current?.render();
+  }, [layers]);
 
   useEffect(() => {
     const map = mapRef.current;

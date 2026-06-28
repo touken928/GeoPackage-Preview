@@ -9,6 +9,8 @@ import { postWebviewMessage } from './services/vscode';
 import type { ExtensionMessage } from './types';
 import type { DocumentState, VectorLayerState } from './types';
 
+const layerColors = ['#f4a7b9', '#f6c177', '#a8d8b9', '#89c2f7', '#c6b0f5', '#f7b7a3', '#b8e0d2', '#f7d794'];
+
 const initialState: DocumentState = {
   status: 'loading',
   vectorLayers: [],
@@ -60,6 +62,10 @@ export function App() {
           active: index === 0,
           visible: true,
           order: index,
+          style: {
+            color: layerColors[index % layerColors.length],
+            opacity: 1,
+          },
         }));
         const tileLayers = parsed.tileLayers.map((layer, index) => ({
           ...layer,
@@ -113,6 +119,20 @@ export function App() {
       return next.map((layer, order) => ({ ...layer, order }));
     });
   };
+
+  const handleUpdateLayerStyle = useCallback((layerId: string, style: { color?: string; opacity?: number }) => {
+    updateVectorLayers((layers) => layers.map((layer) => (
+      layer.id === layerId
+        ? {
+            ...layer,
+            style: {
+              ...layer.style,
+              ...style,
+            },
+          }
+        : layer
+    )));
+  }, []);
 
   const handleActivateItem = (itemId: string, kind: 'vector' | 'tile') => {
     setState((prev) => ({
@@ -206,6 +226,7 @@ export function App() {
             activeItemKind={state.activeItemKind}
             onToggleVisible={handleToggleVisible}
             onMoveLayer={handleMoveLayer}
+            onUpdateLayerStyle={handleUpdateLayerStyle}
             onActivateItem={handleActivateItem}
             onZoomToLayer={handleZoomToLayer}
             onShowDetails={handleShowDetails}

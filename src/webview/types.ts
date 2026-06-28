@@ -44,6 +44,11 @@ export interface CrsInfo {
   warning?: string;
 }
 
+export interface VectorLayerStyle {
+  color: string;
+  opacity: number;
+}
+
 export interface LayerBase {
   id: string;
   name: string;
@@ -68,6 +73,7 @@ export interface VectorLayerState extends LayerBase {
   kind: 'vector';
   features: FeatureRow[];
   renderable: boolean;
+  style: VectorLayerStyle;
 }
 
 export interface TileLayerState extends LayerBase {

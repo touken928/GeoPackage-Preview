@@ -212,6 +212,10 @@ async function readFeatureTable(geoPackage: AnyRecord, tableName: string): Promi
     warning,
     features,
     renderable,
+    style: {
+      color: '#f4a7b9',
+      opacity: 1,
+    },
   };
 }
 
