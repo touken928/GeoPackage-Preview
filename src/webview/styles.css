@@ -216,6 +216,11 @@ body {
   background: rgba(181, 137, 0, 0.16);
 }
 
+.layerBadge.attribute {
+  color: #cdb4db;
+  background: rgba(160, 120, 200, 0.16);
+}
+
 .sidebarActions {
   display: flex;
   gap: 2px;

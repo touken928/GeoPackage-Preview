@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Checkbox, Text } from '@fluentui/react-components';
 import { ChevronDown16Regular, ChevronUp16Regular, PanelLeftExpand20Regular, PanelLeftContract20Regular, ZoomFit20Regular, Table20Regular, Layer20Regular, Database20Regular } from '@fluentui/react-icons';
-import type { TileLayerState, VectorLayerState } from '../types';
+import type { AttributesTableState, TileLayerState, VectorLayerState } from '../types';
 
 interface SidebarProps {
   fileName?: string;
   vectorLayers: VectorLayerState[];
   tileLayers: TileLayerState[];
+  attributeTables: AttributesTableState[];
   activeItemId: string | null;
-  activeItemKind: 'vector' | 'tile' | null;
+  activeItemKind: 'vector' | 'tile' | 'attributes' | null;
   onToggleVisible: (layerId: string) => void;
   onMoveLayer: (layerId: string, direction: -1 | 1) => void;
   onUpdateLayerStyle: (layerId: string, style: { color?: string; opacity?: number }) => void;
-  onActivateItem: (itemId: string, kind: 'vector' | 'tile') => void;
+  onActivateItem: (itemId: string, kind: 'vector' | 'tile' | 'attributes') => void;
   onZoomToLayer: (layerId: string) => void;
-  onShowDetails: (itemId: string, kind: 'vector' | 'tile') => void;
+  onShowDetails: (itemId: string, kind: 'vector' | 'tile' | 'attributes') => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }
@@ -23,6 +24,7 @@ export function Sidebar({
   fileName,
   vectorLayers,
   tileLayers,
+  attributeTables,
   activeItemId,
   activeItemKind,
   onToggleVisible,
@@ -34,7 +36,7 @@ export function Sidebar({
   collapsed,
   onToggleCollapsed,
 }: SidebarProps) {
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string; kind: 'vector' | 'tile' } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string; kind: 'vector' | 'tile' | 'attributes' } | null>(null);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -52,8 +54,10 @@ export function Sidebar({
     if (!contextMenu) return null;
     return contextMenu.kind === 'vector'
       ? vectorLayers.find((item) => item.id === contextMenu.id)
-      : tileLayers.find((item) => item.id === contextMenu.id);
-  }, [contextMenu, vectorLayers, tileLayers]);
+      : contextMenu.kind === 'tile'
+        ? tileLayers.find((item) => item.id === contextMenu.id)
+        : attributeTables.find((item) => item.id === contextMenu.id);
+  }, [attributeTables, contextMenu, vectorLayers, tileLayers]);
 
   const contextVectorLayer = contextMenu?.kind === 'vector' && contextLayer?.kind === 'vector' ? contextLayer : null;
 
@@ -78,7 +82,7 @@ export function Sidebar({
       </div>
 
       <div className="sidebarList">
-        {vectorLayers.length === 0 && tileLayers.length === 0 ? <div className="sidebarEmpty">No layers found</div> : null}
+        {vectorLayers.length === 0 && tileLayers.length === 0 && attributeTables.length === 0 ? <div className="sidebarEmpty">No layers found</div> : null}
         {vectorLayers.map((layer, index) => {
           const active = activeItemKind === 'vector' && activeItemId === layer.id;
           return (
@@ -136,6 +140,35 @@ export function Sidebar({
                   <span className="layerBadge tile">Tile</span>
                   <span>{layer.tileCount ?? 0} tiles</span>
                   <span>Metadata only</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {attributeTables.map((table) => {
+          const active = activeItemKind === 'attributes' && activeItemId === table.id;
+          return (
+            <div
+              key={table.id}
+              className={['sidebarCard', active ? 'active' : ''].filter(Boolean).join(' ')}
+              onClick={() => onActivateItem(table.id, 'attributes')}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setContextMenu({ x: event.clientX, y: event.clientY, id: table.id, kind: 'attributes' });
+              }}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="sidebarCardBody">
+                <div className="sidebarCardTitleRow">
+                  <Table20Regular />
+                  <Text weight="semibold">{table.name}</Text>
+                </div>
+                <div className="sidebarCardMeta">
+                  <span className="layerBadge attribute">Attributes</span>
+                  <span>{table.featureCount ?? 0} rows</span>
+                  <span>No geometry</span>
                 </div>
               </div>
             </div>

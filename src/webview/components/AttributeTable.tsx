@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Text } from '@fluentui/react-components';
 import { PanelBottomExpand20Regular, PanelBottomContract20Regular, ZoomFit20Regular } from '@fluentui/react-icons';
-import type { TileLayerState, VectorLayerState } from '../types';
+import type { AttributesTableState, FeatureRow, TileLayerState, VectorLayerState } from '../types';
 
 interface AttributeTableProps {
   layer: VectorLayerState | undefined;
   tileLayer: TileLayerState | undefined;
+  attributeTable: AttributesTableState | undefined;
   onToggleCollapsed: () => void;
   onSelectFeature: (featureKey: string) => void;
   onZoomToFeature: (featureKey: string) => void;
@@ -53,14 +54,15 @@ function searchValue(featureId: string, value: unknown, key: SortKey): string {
 export function AttributeTable({
   layer,
   tileLayer,
+  attributeTable,
   onToggleCollapsed,
   onSelectFeature,
   onZoomToFeature,
   selectedFeatureKey,
 }: AttributeTableProps) {
-  const features = layer?.features ?? [];
-  const columns = layer?.columns ?? [];
-  const title = layer?.name ?? tileLayer?.name ?? 'Details';
+  const rows: FeatureRow[] = layer?.features ?? attributeTable?.rows ?? [];
+  const columns = layer?.columns ?? attributeTable?.columns ?? [];
+  const title = layer?.name ?? attributeTable?.name ?? tileLayer?.name ?? 'Details';
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; featureKey: string } | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -73,7 +75,7 @@ export function AttributeTable({
     setSortDirection('asc');
     setSearchColumn('id');
     setSearchQuery('');
-  }, [layer?.id]);
+  }, [attributeTable?.id, layer?.id]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -107,15 +109,15 @@ export function AttributeTable({
   const hasInvalidRegex = searchQuery.length > 0 && searchRegex == null;
 
   const filteredFeatures = useMemo(() => {
-    if (!searchQuery) return features;
+    if (!searchQuery) return rows;
     if (hasInvalidRegex) return [];
 
-    return features.filter((feature) => {
-      const rawValue = searchColumn === 'id' ? undefined : feature.properties[searchColumn];
-      const text = searchValue(feature.id, rawValue, searchColumn);
+    return rows.filter((row) => {
+      const rawValue = searchColumn === 'id' ? undefined : row.properties[searchColumn];
+      const text = searchValue(row.id, rawValue, searchColumn);
       return searchRegex?.test(text) ?? false;
     });
-  }, [features, hasInvalidRegex, searchColumn, searchQuery, searchRegex]);
+  }, [hasInvalidRegex, rows, searchColumn, searchQuery, searchRegex]);
 
   const sortedFeatures = useMemo(() => {
     return filteredFeatures
@@ -162,15 +164,16 @@ export function AttributeTable({
         <div className="detailsHeaderContent">
           <div className="detailsTitleRow">
             <Text className="detailsTitleText" weight="semibold">{title}</Text>
-            {layer ? <span className="detailsCount">{features.length} rows</span> : null}
+            {(layer || attributeTable) ? <span className="detailsCount">{rows.length} rows</span> : null}
           </div>
           {tileLayer ? <div className="detailsMeta">Tile table metadata only</div> : null}
-          {!layer && !tileLayer ? <div className="detailsMeta">Choose a layer to inspect it.</div> : null}
+          {attributeTable ? <div className="detailsMeta">Non-spatial attribute table</div> : null}
+          {!layer && !tileLayer && !attributeTable ? <div className="detailsMeta">Choose a layer to inspect it.</div> : null}
         </div>
         <Button appearance="subtle" icon={<PanelBottomContract20Regular />} onClick={onToggleCollapsed} />
       </div>
 
-      {layer ? (
+      {layer || attributeTable ? (
         <>
           <div className="detailsBody">
             <div className="tableToolbar">
@@ -203,21 +206,21 @@ export function AttributeTable({
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedFeatures.map((feature) => {
-                    const selected = feature.id === selectedFeatureKey;
+                  {sortedFeatures.map((row) => {
+                    const selected = row.id === selectedFeatureKey;
                     return (
                       <tr
-                        key={feature.id}
+                        key={row.id}
                         className={selected ? 'selectedRow' : ''}
                         ref={selected ? selectedRowRef : undefined}
-                        onClick={() => onSelectFeature(feature.id)}
+                        onClick={() => onSelectFeature(row.id)}
                         onContextMenu={(event) => {
                           event.preventDefault();
-                          setContextMenu({ x: event.clientX, y: event.clientY, featureKey: feature.id });
+                          setContextMenu({ x: event.clientX, y: event.clientY, featureKey: row.id });
                         }}
                       >
-                        <td className="fixedCol">{displayFeatureId(feature.id)}</td>
-                        {columns.map((column) => <td key={column}>{formatValue(feature.properties[column])}</td>)}
+                        <td className="fixedCol">{displayFeatureId(row.id)}</td>
+                        {columns.map((column) => <td key={column}>{formatValue(row.properties[column])}</td>)}
                       </tr>
                     );
                   })}

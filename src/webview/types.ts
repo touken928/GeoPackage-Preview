@@ -1,4 +1,4 @@
-export type LayerKind = 'vector' | 'tile';
+export type LayerKind = 'vector' | 'tile' | 'attributes';
 
 export interface OpenDocumentPayload {
   bytes: Uint8Array | ArrayBuffer | number[] | { buffer: ArrayBuffer; byteOffset?: number; byteLength?: number };
@@ -80,12 +80,18 @@ export interface TileLayerState extends LayerBase {
   kind: 'tile';
 }
 
+export interface AttributesTableState extends LayerBase {
+  kind: 'attributes';
+  rows: FeatureRow[];
+}
+
 export interface DocumentState {
   fileName?: string;
   status: 'idle' | 'loading' | 'ready' | 'error';
   error?: string;
   vectorLayers: VectorLayerState[];
   tileLayers: TileLayerState[];
+  attributeTables: AttributesTableState[];
   activeItemId: string | null;
   activeItemKind: LayerKind | null;
   activeLayerId: string | null;

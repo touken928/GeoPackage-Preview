@@ -1,6 +1,6 @@
 import proj4 from 'proj4';
 import { register } from 'ol/proj/proj4';
-import type { CrsInfo, FeatureRow, TileLayerState, VectorLayerState } from '../types';
+import type { AttributesTableState, CrsInfo, FeatureRow, TileLayerState, VectorLayerState } from '../types';
 
 type AnyRecord = Record<string, any>;
 
@@ -127,6 +127,38 @@ function collectColumns(features: FeatureRow[]): string[] {
   return [...seen].sort((a, b) => a.localeCompare(b));
 }
 
+async function readAttributesTableRows(geoPackage: AnyRecord, tableName: string): Promise<FeatureRow[]> {
+  const dao = await callMaybe(geoPackage, ['getAttributesDao'], tableName);
+  const columnNames = typeof dao?.getColumnNames === 'function' ? dao.getColumnNames() : [];
+  const resultSet = await callMaybe(geoPackage, ['query'], `SELECT * FROM "${tableName.replace(/"/g, '""')}"`, []);
+  if (!resultSet || typeof resultSet.next !== 'function') return [];
+
+  const rows: FeatureRow[] = [];
+  let index = 0;
+
+  try {
+    while (resultSet.next()) {
+      const properties: Record<string, unknown> = {};
+      for (const columnName of columnNames) {
+        properties[columnName] = resultSet.getValue(columnName);
+      }
+      const idCandidate = properties.id ?? properties.fid ?? properties.ogc_fid ?? index;
+      rows.push({
+        id: featureKey(tableName, String(idCandidate)),
+        properties,
+        geometry: null,
+      });
+      index += 1;
+    }
+  } finally {
+    if (typeof resultSet.close === 'function') {
+      resultSet.close();
+    }
+  }
+
+  return rows;
+}
+
 function readSrsInfo(table: AnyRecord, fallbackName: string): CrsInfo | undefined {
   const srs = table?.getSrs?.() ?? table?.srs ?? table?.tableSrs ?? table?.contents?.srs;
   const organization = srs?.organization ?? srs?.org ?? 'EPSG';
@@ -235,9 +267,25 @@ async function readTileTable(geoPackage: AnyRecord, tableName: string): Promise<
   };
 }
 
+async function readAttributesTable(geoPackage: AnyRecord, tableName: string): Promise<AttributesTableState> {
+  const rows = await readAttributesTableRows(geoPackage, tableName);
+  return {
+    id: tableName,
+    name: tableName,
+    kind: 'attributes',
+    visible: false,
+    active: false,
+    order: 0,
+    featureCount: rows.length,
+    columns: collectColumns(rows),
+    rows,
+  };
+}
+
 export interface ParsedGeoPackageDocument {
   vectorLayers: VectorLayerState[];
   tileLayers: TileLayerState[];
+  attributeTables: AttributesTableState[];
 }
 
 export async function parseGeoPackageDocument(bytes: Uint8Array | ArrayBuffer | number[] | { buffer: ArrayBuffer; byteOffset?: number; byteLength?: number }, wasmUri: string): Promise<ParsedGeoPackageDocument> {
@@ -246,6 +294,7 @@ export async function parseGeoPackageDocument(bytes: Uint8Array | ArrayBuffer | 
 
   const featureTableNames = (await callMaybe(pkg, ['getFeatureTables', 'getFeatureTableNames'])) ?? [];
   const tileTableNames = (await callMaybe(pkg, ['getTileTables', 'getTileTableNames'])) ?? [];
+  const attributeTableNames = (await callMaybe(pkg, ['getAttributesTables', 'getAttributesTableNames'])) ?? [];
 
   const vectorLayers = [] as VectorLayerState[];
   for (const tableName of featureTableNames as string[]) {
@@ -257,6 +306,11 @@ export async function parseGeoPackageDocument(bytes: Uint8Array | ArrayBuffer | 
     tileLayers.push(await readTileTable(pkg, tableName));
   }
 
+  const attributeTables = [] as AttributesTableState[];
+  for (const tableName of attributeTableNames as string[]) {
+    attributeTables.push(await readAttributesTable(pkg, tableName));
+  }
+
   vectorLayers.forEach((layer, index) => {
     layer.order = index;
     layer.active = index === 0;
@@ -266,5 +320,9 @@ export async function parseGeoPackageDocument(bytes: Uint8Array | ArrayBuffer | 
     layer.order = index;
   });
 
-  return { vectorLayers, tileLayers };
+  attributeTables.forEach((table, index) => {
+    table.order = index;
+  });
+
+  return { vectorLayers, tileLayers, attributeTables };
 }

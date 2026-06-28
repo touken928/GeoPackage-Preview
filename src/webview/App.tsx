@@ -7,7 +7,7 @@ import { AttributeTable } from './components/AttributeTable';
 import { parseGeoPackageDocument } from './services/geopackage';
 import { postWebviewMessage } from './services/vscode';
 import type { ExtensionMessage } from './types';
-import type { DocumentState, VectorLayerState } from './types';
+import type { AttributesTableState, DocumentState, VectorLayerState } from './types';
 
 const layerColors = ['#f4a7b9', '#f6c177', '#a8d8b9', '#89c2f7', '#c6b0f5', '#f7b7a3', '#b8e0d2', '#f7d794'];
 
@@ -15,6 +15,7 @@ const initialState: DocumentState = {
   status: 'loading',
   vectorLayers: [],
   tileLayers: [],
+  attributeTables: [],
   activeItemId: null,
   activeItemKind: null,
   activeLayerId: null,
@@ -37,6 +38,11 @@ export function App() {
   const activeTileLayer = useMemo(
     () => state.tileLayers.find((layer) => layer.id === state.activeItemId),
     [state.activeItemId, state.tileLayers],
+  );
+
+  const activeAttributeTable = useMemo(
+    () => state.attributeTables.find((table) => table.id === state.activeItemId),
+    [state.activeItemId, state.attributeTables],
   );
 
   useEffect(() => {
@@ -71,14 +77,19 @@ export function App() {
           ...layer,
           order: index,
         }));
+        const attributeTables = parsed.attributeTables.map((table, index) => ({
+          ...table,
+          order: index,
+        }));
 
         setState({
           status: 'ready',
           fileName: message.file?.name ?? message.fileName,
           vectorLayers,
           tileLayers,
-          activeItemId: vectorLayers[0]?.id ?? tileLayers[0]?.id ?? null,
-          activeItemKind: vectorLayers[0] ? 'vector' : tileLayers[0] ? 'tile' : null,
+          attributeTables,
+          activeItemId: vectorLayers[0]?.id ?? tileLayers[0]?.id ?? attributeTables[0]?.id ?? null,
+          activeItemKind: vectorLayers[0] ? 'vector' : tileLayers[0] ? 'tile' : attributeTables[0] ? 'attributes' : null,
           activeLayerId: vectorLayers[0]?.id ?? null,
           selectedFeatureKey: null,
         });
@@ -134,7 +145,7 @@ export function App() {
     )));
   }, []);
 
-  const handleActivateItem = (itemId: string, kind: 'vector' | 'tile') => {
+  const handleActivateItem = (itemId: string, kind: 'vector' | 'tile' | 'attributes') => {
     setState((prev) => ({
       ...prev,
       activeItemId: itemId,
@@ -165,7 +176,7 @@ export function App() {
     setZoomRequest({ type: 'feature', id: featureKey, nonce: Date.now() });
   }, []);
 
-  const handleShowDetails = useCallback((itemId: string, kind: 'vector' | 'tile') => {
+  const handleShowDetails = useCallback((itemId: string, kind: 'vector' | 'tile' | 'attributes') => {
     handleActivateItem(itemId, kind);
     setDetailsCollapsed(false);
   }, []);
@@ -222,6 +233,7 @@ export function App() {
             fileName={state.fileName}
             vectorLayers={state.vectorLayers}
             tileLayers={state.tileLayers}
+            attributeTables={state.attributeTables}
             activeItemId={state.activeItemId}
             activeItemKind={state.activeItemKind}
             onToggleVisible={handleToggleVisible}
@@ -280,6 +292,7 @@ export function App() {
               <AttributeTable
                 layer={state.activeItemKind === 'vector' ? activeLayer : undefined}
                 tileLayer={activeTileLayer}
+                attributeTable={state.activeItemKind === 'attributes' ? activeAttributeTable : undefined}
                 onToggleCollapsed={() => setDetailsCollapsed(true)}
                 onSelectFeature={(featureKey) => setState((prev) => ({ ...prev, selectedFeatureKey: featureKey }))}
                 onZoomToFeature={handleZoomToFeature}
