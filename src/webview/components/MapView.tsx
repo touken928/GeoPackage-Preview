@@ -44,11 +44,14 @@ function createStyle(layer: VectorLayerState, selected: boolean, geometryType?: 
   const selectedStrokeColor = '#7ec8ff';
   const selectedStrokeOpacity = Math.max(0.85, opacity);
   const defaultStrokeColor = '#000000';
-  const baseStrokeColor = isLineGeometry(geometryType) ? fillColor : defaultStrokeColor;
+  const isLine = isLineGeometry(geometryType);
+  const baseStrokeColor = isLine ? fillColor : defaultStrokeColor;
+  const baseStrokeWidth = isLine ? 2.25 : 1;
+  const selectedStrokeWidth = isLine ? 4 : 3;
 
   return new Style({
     fill: new Fill({ color: hexToRgba(fillColor, opacity) }),
-    stroke: new Stroke({ color: selected ? hexToRgba(selectedStrokeColor, selectedStrokeOpacity) : hexToRgba(baseStrokeColor, opacity), width: selected ? 3 : 1 }),
+    stroke: new Stroke({ color: selected ? hexToRgba(selectedStrokeColor, selectedStrokeOpacity) : hexToRgba(baseStrokeColor, opacity), width: selected ? selectedStrokeWidth : baseStrokeWidth }),
     image: new CircleStyle({
       radius: selected ? 7 : 5,
       fill: new Fill({ color: hexToRgba(fillColor, opacity) }),
