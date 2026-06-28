@@ -1,4 +1,4 @@
-# GeoPackage Preview
+<h1 align="center">GeoPackage Preview</h1>
 
 <p align="center">
   <a href="https://code.visualstudio.com/"><img src="https://img.shields.io/badge/VS_Code-1.85+-blue?style=flat&logo=visualstudiocode" alt="VS Code"></a>
