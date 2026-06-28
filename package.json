@@ -4,7 +4,7 @@
   "description": "Read-only preview for GeoPackage (.gpkg) files with map and attribute table views",
   "icon": "media/logo.png",
   "version": "0.1.0",
-  "publisher": "touken928",
+  "publisher": "Touken",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -36,7 +36,8 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "lint": "echo 'lint not configured'",
-    "package": "npx @vscode/vsce package"
+    "package": "npx @vscode/vsce package",
+    "deploy": "npx @vscode/vsce publish"
   },
   "files": [
     "out/**",
