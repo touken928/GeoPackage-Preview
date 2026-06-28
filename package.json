@@ -3,7 +3,7 @@
   "displayName": "GeoPackage Preview",
   "description": "Read-only preview for GeoPackage (.gpkg) files with map and attribute table views",
   "icon": "media/logo.png",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "Touken",
   "license": "Apache-2.0",
   "repository": {
