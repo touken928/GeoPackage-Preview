@@ -6,5 +6,4 @@ out/
 *.log
 coverage/
 .env
-samples/.tmp/
-samples/*.gpkg
+samples/

@@ -26,9 +26,11 @@ from rasterio.transform import from_bounds
 from shapely.geometry import LineString, Point, Polygon
 
 
-ROOT = Path(__file__).resolve().parent
-GPKG_PATH = ROOT / "sample_data.gpkg"
-WORK_DIR = ROOT / ".tmp"
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+SAMPLES_DIR = REPO_ROOT / "samples"
+GPKG_PATH = SAMPLES_DIR / "sample_data.gpkg"
+WORK_DIR = SAMPLES_DIR / ".tmp"
 
 
 def reset_workspace() -> None:
@@ -38,7 +40,7 @@ def reset_workspace() -> None:
 
 
 def build_vector_layers() -> None:
-    points = gpd.GeoDataFrame(
+    points_wgs84 = gpd.GeoDataFrame(
         {
             "name": ["Station Alpha", "Station Beta", "Station Gamma"],
             "category": ["sensor", "station", "hub"],
@@ -52,7 +54,7 @@ def build_vector_layers() -> None:
         crs="EPSG:4326",
     )
 
-    lines = gpd.GeoDataFrame(
+    lines_wgs84 = gpd.GeoDataFrame(
         {
             "route_name": ["River Walk", "North Connector"],
             "surface": ["paved", "gravel"],
@@ -65,7 +67,7 @@ def build_vector_layers() -> None:
         crs="EPSG:4326",
     )
 
-    polygons = gpd.GeoDataFrame(
+    polygons_wgs84 = gpd.GeoDataFrame(
         {
             "zone_name": ["Central Park", "Warehouse Block"],
             "land_use": ["green", "industrial"],
@@ -78,11 +80,23 @@ def build_vector_layers() -> None:
         crs="EPSG:4326",
     )
 
+    points_web_mercator = points_wgs84.to_crs("EPSG:3857")
+    points_web_mercator["source_crs"] = "EPSG:3857"
+
+    lines_utm_51n = lines_wgs84.to_crs("EPSG:32651")
+    lines_utm_51n["source_crs"] = "EPSG:32651"
+
+    polygons_cgcs2000 = polygons_wgs84.to_crs("EPSG:4490")
+    polygons_cgcs2000["source_crs"] = "EPSG:4490"
+
     first_mode = "a" if GPKG_PATH.exists() else "w"
 
-    points.to_file(GPKG_PATH, layer="sample_points", driver="GPKG", mode=first_mode)
-    lines.to_file(GPKG_PATH, layer="sample_lines", driver="GPKG", mode="a")
-    polygons.to_file(GPKG_PATH, layer="sample_polygons", driver="GPKG", mode="a")
+    points_wgs84.to_file(GPKG_PATH, layer="sample_points", driver="GPKG", mode=first_mode)
+    lines_wgs84.to_file(GPKG_PATH, layer="sample_lines", driver="GPKG", mode="a")
+    polygons_wgs84.to_file(GPKG_PATH, layer="sample_polygons", driver="GPKG", mode="a")
+    points_web_mercator.to_file(GPKG_PATH, layer="sample_points_3857", driver="GPKG", mode="a")
+    lines_utm_51n.to_file(GPKG_PATH, layer="sample_lines_32651", driver="GPKG", mode="a")
+    polygons_cgcs2000.to_file(GPKG_PATH, layer="sample_polygons_4490", driver="GPKG", mode="a")
 
 
 def build_attribute_table() -> None:
