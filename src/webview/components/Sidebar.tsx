@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Checkbox, Text } from '@fluentui/react-components';
-import { ChevronDown16Regular, ChevronUp16Regular, PanelLeftExpand20Regular, PanelLeftContract20Regular, ZoomFit20Regular, Table20Regular, Layer20Regular, Database20Regular } from '@fluentui/react-icons';
+import { ChevronDown16Regular, ChevronUp16Regular, PanelLeftExpand20Regular, PanelLeftContract20Regular, ZoomFit20Regular, Table20Regular, MyLocation20Regular, Branch20Regular, Square20Regular, Shapes20Regular, ImageTable20Regular, DocumentTable20Regular } from '@fluentui/react-icons';
 import type { AttributesTableState, TileLayerState, VectorLayerState } from '../types';
+
+function getVectorLayerIcon(layer: VectorLayerState) {
+  const style = { color: layer.style.color };
+  switch (layer.geometryKind) {
+    case 'point':
+      return <MyLocation20Regular style={style} />;
+    case 'line':
+      return <Branch20Regular style={style} />;
+    case 'polygon':
+      return <Square20Regular style={style} />;
+    default:
+      return <Shapes20Regular style={style} />;
+  }
+}
 
 interface SidebarProps {
   fileName?: string;
@@ -100,7 +114,7 @@ export function Sidebar({
               <div className="sidebarCardBody">
                 <div className="sidebarCardTitleRow">
                   <Checkbox checked={layer.visible} onClick={(e) => e.stopPropagation()} onChange={() => onToggleVisible(layer.id)} />
-                  <Layer20Regular style={{ color: layer.style.color }} />
+                  {getVectorLayerIcon(layer)}
                   <Text weight="semibold">{layer.name}</Text>
                 </div>
                 <div className="sidebarCardMeta">
@@ -133,7 +147,7 @@ export function Sidebar({
             >
               <div className="sidebarCardBody">
                 <div className="sidebarCardTitleRow">
-                  <Database20Regular />
+                  <ImageTable20Regular />
                   <Text weight="semibold">{layer.name}</Text>
                 </div>
                 <div className="sidebarCardMeta">
@@ -162,7 +176,7 @@ export function Sidebar({
             >
               <div className="sidebarCardBody">
                 <div className="sidebarCardTitleRow">
-                  <Table20Regular />
+                  <DocumentTable20Regular />
                   <Text weight="semibold">{table.name}</Text>
                 </div>
                 <div className="sidebarCardMeta">

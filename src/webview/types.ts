@@ -49,6 +49,8 @@ export interface VectorLayerStyle {
   opacity: number;
 }
 
+export type VectorGeometryKind = 'point' | 'line' | 'polygon' | 'mixed' | 'unknown';
+
 export interface LayerBase {
   id: string;
   name: string;
@@ -73,6 +75,7 @@ export interface VectorLayerState extends LayerBase {
   kind: 'vector';
   features: FeatureRow[];
   renderable: boolean;
+  geometryKind: VectorGeometryKind;
   style: VectorLayerStyle;
 }
 

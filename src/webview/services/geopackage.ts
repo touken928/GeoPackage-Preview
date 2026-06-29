@@ -1,6 +1,6 @@
 import proj4 from 'proj4';
 import { register } from 'ol/proj/proj4';
-import type { AttributesTableState, CrsInfo, FeatureRow, TileLayerState, VectorLayerState } from '../types';
+import type { AttributesTableState, CrsInfo, FeatureRow, TileLayerState, VectorGeometryKind, VectorLayerState } from '../types';
 
 type AnyRecord = Record<string, any>;
 
@@ -199,6 +199,36 @@ function readSrsInfo(table: AnyRecord, fallbackName: string): CrsInfo | undefine
   };
 }
 
+function geometryKindFromType(geometryType: string | undefined): VectorGeometryKind {
+  switch (geometryType) {
+    case 'Point':
+    case 'MultiPoint':
+      return 'point';
+    case 'LineString':
+    case 'MultiLineString':
+      return 'line';
+    case 'Polygon':
+    case 'MultiPolygon':
+      return 'polygon';
+    default:
+      return 'unknown';
+  }
+}
+
+function detectVectorGeometryKind(features: FeatureRow[]): VectorGeometryKind {
+  const kinds = new Set<VectorGeometryKind>();
+  for (const feature of features) {
+    const kind = geometryKindFromType(feature.geometry?.type);
+    if (kind !== 'unknown') {
+      kinds.add(kind);
+    }
+  }
+
+  if (kinds.size === 0) return 'unknown';
+  if (kinds.size === 1) return [...kinds][0] ?? 'unknown';
+  return 'mixed';
+}
+
 async function readGeoJsonFeatures(geoPackage: AnyRecord, tableName: string): Promise<FeatureRow[]> {
   const dao = await callMaybe(geoPackage, ['getFeatureDao', 'getFeatureTableDao', 'featureDao'], tableName);
   if (!dao) throw new Error(`No feature DAO found for table ${tableName}.`);
@@ -244,6 +274,7 @@ async function readFeatureTable(geoPackage: AnyRecord, tableName: string): Promi
     warning,
     features,
     renderable,
+    geometryKind: detectVectorGeometryKind(features),
     style: {
       color: '#f4a7b9',
       opacity: 1,
